@@ -74,6 +74,7 @@ def main(dataset, split, model, output, gpu, iterations, batch_size, display,
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     sess.run(tf.global_variables_initializer())
+    # 只恢复部分参数，由weights和weights_end来指定
     if weights:
         var_dict = adda.util.collect_vars(model, end=weights_end)
         logging.info('Restoring weights from {}:'.format(weights))
@@ -87,6 +88,7 @@ def main(dataset, split, model, output, gpu, iterations, batch_size, display,
     output_dir = os.path.join('snapshot', output)
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
+    # 多步的losses上取平均
     losses = deque(maxlen=10)
     bar = tqdm(range(iterations))
     bar.set_description('{} (lr: {:.0e})'.format(output, lr))
@@ -99,6 +101,7 @@ def main(dataset, split, model, output, gpu, iterations, batch_size, display,
                         .format('Iteration {}:'.format(i),
                                 loss_val,
                                 np.mean(losses)))
+        # 降低学习率
         if stepsize is not None and (i + 1) % stepsize == 0:
             lr = sess.run(lr_var.assign(lr * 0.1))
             logging.info('Changed learning rate to {:.0e}'.format(lr))

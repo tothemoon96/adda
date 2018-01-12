@@ -89,20 +89,26 @@ def main(source, target, model, output,
     source_ft = tf.reshape(source_ft, [-1, int(source_ft.get_shape()[-1])])
     target_ft = tf.reshape(target_ft, [-1, int(target_ft.get_shape()[-1])])
     adversary_ft = tf.concat([source_ft, target_ft], 0)
+    # [batch_size]
+    # source标签是0
     source_adversary_label = tf.zeros([tf.shape(source_ft)[0]], tf.int32)
+    # target标签是1
     target_adversary_label = tf.ones([tf.shape(target_ft)[0]], tf.int32)
+    # [2*batch_size]
     adversary_label = tf.concat(
         [source_adversary_label, target_adversary_label], 0)
     adversary_logits = adda.adversary.adversarial_discriminator(
         adversary_ft, adversary_layers, leaky=adversary_leaky)
 
     # losses
+    # mapping_loss对应的损失函数是minimax
     mapping_loss = tf.losses.sparse_softmax_cross_entropy(
         1 - adversary_label, adversary_logits)
     adversary_loss = tf.losses.sparse_softmax_cross_entropy(
         adversary_label, adversary_logits)
 
     # variable collection
+    # 将3个子模型的变量区分开
     source_vars = adda.util.collect_vars('source')
     target_vars = adda.util.collect_vars('target')
     adversary_vars = adda.util.collect_vars('adversary')
@@ -113,6 +119,7 @@ def main(source, target, model, output,
         optimizer = tf.train.MomentumOptimizer(lr_var, 0.99)
     else:
         optimizer = tf.train.AdamOptimizer(lr_var, 0.5)
+    # 分开训练不同的网络，使用相同的初始学习率
     mapping_step = optimizer.minimize(
         mapping_loss, var_list=list(target_vars.values()))
     adversary_step = optimizer.minimize(
@@ -127,6 +134,7 @@ def main(source, target, model, output,
     sess.run(tf.global_variables_initializer())
 
     # restore weights
+    # 用在source上训练好的model去初始化adda中的source和target
     if os.path.isdir(weights):
         weights = tf.train.latest_checkpoint(weights)
     logging.info('Restoring weights from {}:'.format(weights))
